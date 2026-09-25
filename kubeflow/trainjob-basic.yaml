@@ -1,0 +1,17 @@
+apiVersion: kubeflow.org/v1
+kind: TFJob
+metadata:
+  name: trainjob-basic
+spec:
+  tfReplicaSpecs:
+    Worker:
+      replicas: 2
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: training
+              image: pytorch/pytorch:latest
+              command:
+                - python
+                - /app/training/train_ddp.py

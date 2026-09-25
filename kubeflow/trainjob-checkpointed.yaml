@@ -1,0 +1,23 @@
+apiVersion: kubeflow.org/v1
+kind: TFJob
+metadata:
+  name: trainjob-checkpointed
+spec:
+  tfReplicaSpecs:
+    Worker:
+      replicas: 2
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: training
+              image: pytorch/pytorch:latest
+              command:
+                - python
+                - /app/training/train_ddp.py
+              env:
+                - name: CHECKPOINT_DIR
+                  value: "/checkpoints"
+          volumes:
+            - name: checkpoint-volume
+              emptyDir: {}

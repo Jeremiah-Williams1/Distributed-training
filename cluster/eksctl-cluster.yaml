@@ -1,0 +1,15 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: distributed-training-cluster
+  region: us-west-2
+
+managedNodeGroups:
+  - name: workers
+    instanceType: m5.large
+    desiredCapacity: 2
+    minSize: 1
+    maxSize: 3
+    labels:
+      role: workers
