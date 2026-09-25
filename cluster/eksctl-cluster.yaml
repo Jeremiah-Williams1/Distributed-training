@@ -2,14 +2,48 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: distributed-training-cluster
-  region: us-west-2
+  name: ddp-training-cluster
+  region: us-east-1  
+  version: "1.31"
+
+# Needed later for IAM Roles for Service Accounts (IRSA) - e.g. when
+# checkpointing writes to S3 in the next project phase. Cheap to enable
+# now rather than recreate the cluster for it later.
+iam:
+  withOIDC: true
 
 managedNodeGroups:
-  - name: workers
-    instanceType: m5.large
-    desiredCapacity: 2
+  # Always-on, small, non-GPU - runs CoreDNS, the Kubeflow Trainer
+  # controller, Kueue's controller, etc. Draws from the standard EC2
+  # quota, not the G/VT (GPU) quota - so this doesn't compete with your
+  # 8 GPU vCPUs at all.
+  - name: system-ng
+    instanceType: t3.medium
+    desiredCapacity: 1
     minSize: 1
-    maxSize: 3
+    maxSize: 1
+    volumeSize: 20
     labels:
-      role: workers
+      role: system
+
+  # GPU workers. desiredCapacity starts at 0 on purpose - costs nothing
+  # and uses no GPU-quota vCPUs until you explicitly scale it up right
+  # before running a TrainJob. Same instance type as your two standalone
+  # EC2s (g4dn.xlarge, 4 vCPU/1 T4 each) - 2 nodes = 8 vCPU = your full
+  # quota, so the standalone instances must be stopped before scaling
+  # this up.
+  - name: gpu-ng
+    instanceType: g4dn.xlarge
+    desiredCapacity: 0
+    minSize: 0
+    maxSize: 2
+    volumeSize: 120
+    labels:
+      role: gpu-worker
+    # Keeps ordinary pods (that don't need a GPU) from accidentally
+    # landing here and wasting expensive capacity. The TrainJob pod spec
+    # will need a matching toleration to schedule here.
+    taints:
+      - key: nvidia.com/gpu
+        value: "true"
+        effect: NoSchedule
